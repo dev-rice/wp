@@ -46,6 +46,12 @@ func setWallpaper(path string) error {
 	return errors.Wrap(err, "failed to run wallpaper set command")
 }
 
+func setWallpaperLinux(path string) error {
+    cmd := exec.Command("feh", "--bg-fill", path)
+    err := cmd.Run()
+    return errors.Wrap(err, "failed to run wallpaper set command")
+}
+
 func PrintListOfImages(paths []string) error {
 	for i, path := range paths {
 		fmt.Printf("%d: %s\n", i, filepath.Base(path))
@@ -57,6 +63,8 @@ func PrintListOfImages(paths []string) error {
 // wp ls - will give a numbered list of all jpegs in the specified directory
 // wp set -n <n> - will set wallpaper to the image at wp_ls[n]
 
+const wallpaperDir = "/home/chris.rice/Pictures/Wallpapers"
+
 func main() {
 	app := cli.NewApp()
 	app.Commands = []cli.Command{
@@ -65,7 +73,7 @@ func main() {
 			Aliases: []string{"ls"},
 			Usage: "give a numbered list of all jpegs in the specified directory",
 			Action:  func(ctx *cli.Context) error {
-				imagePaths, err := GetImagesInDir("/Users/chris/Pictures/Wallpapers/")
+				imagePaths, err := GetImagesInDir(wallpaperDir)
 				if err != nil {
 					return err
 				}
@@ -83,12 +91,12 @@ func main() {
 				},
 			},
 			Action: func(ctx *cli.Context) error {
-				imagePaths, err := GetImagesInDir("/Users/chris/Pictures/Wallpapers/")
+				imagePaths, err := GetImagesInDir(wallpaperDir)
 				if err != nil {
 					return errors.Wrap(err, "failed to get list of images")
 				}
 
-				err = setWallpaper(imagePaths[ctx.Int("n")])
+				err = setWallpaperLinux(imagePaths[ctx.Int("n")])
 				return errors.Wrap(err, "failed to set wallpaper")
 			},
 		},
