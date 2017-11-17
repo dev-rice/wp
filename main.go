@@ -54,7 +54,7 @@ func setWallpaperLinux(path string) error {
 
 func PrintListOfImages(paths []string) error {
 	for i, path := range paths {
-		fmt.Printf("%d: %s\n", i, filepath.Base(path))
+		fmt.Printf("%d: [%f] %s\n", i, GetImageAspectRatio(path), filepath.Base(path))
 	}
 
 	return nil
