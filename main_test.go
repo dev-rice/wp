@@ -51,8 +51,23 @@ func TestGetImagesInDirWorksWithTwoJpgs(t *testing.T) {
 	assert.Nil(t, err)
 }
 
-func TestGetImagesInDirReturnsNoResultsForNonImageFiles(t *testing.T) {
-	tmpImagesDir, err := makeTempImageDir([]string{"portrait/image1.png", "landscape/image2.png", "landscape/readme.md"})
+func TestGetImagesInDirWorksWithJpgsAndPng(t *testing.T) {
+	tmpImagesDir, err := makeTempImageDir([]string{"portrait/image1.jpg", "landscape/image2.jpg", "landscape/image3.png"})
+	assert.Nil(t, err)
+	defer os.RemoveAll(tmpImagesDir)
+
+	imagePaths, err := GetImagesInDir(tmpImagesDir)
+
+	assert.Equal(t, 3, len(imagePaths))
+	assert.Contains(t, imagePaths, filepath.Join(tmpImagesDir, "portrait/image1.jpg"))
+	assert.Contains(t, imagePaths, filepath.Join(tmpImagesDir, "landscape/image2.jpg"))
+	assert.Contains(t, imagePaths, filepath.Join(tmpImagesDir, "landscape/image3.png"))
+	assert.Nil(t, err)
+}
+
+
+func TestGetImagesInDirReturnsNoResultsForUnsupportedFiles(t *testing.T) {
+	tmpImagesDir, err := makeTempImageDir([]string{"portrait/image1.pdf", "landscape/image2.cr2", "landscape/readme.md"})
 	assert.Nil(t, err)
 	defer os.RemoveAll(tmpImagesDir)
 
