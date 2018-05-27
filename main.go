@@ -4,12 +4,15 @@ import (
 	"fmt"
 	"github.com/pkg/errors"
 	_ "image/jpeg"
+	_ "image/png"
 	"os"
 	"path/filepath"
 	"image"
 
-	"github.com/urfave/cli"
 	"github.com/donutmonger/wp/wallpaper"
+	"github.com/urfave/cli"
+	"math/rand"
+	"time"
 )
 
 
@@ -28,18 +31,6 @@ func GetImagesInDir(dir string) ([]string, error) {
 	return images, errors.Wrap(err, "Failed to list all wallpapers")
 }
 
-func GetImageAspectRatio(path string) float32 {
-	f, err := os.Open(path)
-	if err != nil {
-		panic(err)
-	}
-	img, _, err := image.DecodeConfig(f)
-	if err != nil {
-		panic(err)
-	}
-
-	return float32(img.Width) / float32(img.Height)
-}
 
 func PrintListOfImages(paths []string) error {
 	for i, path := range paths {
@@ -49,10 +40,7 @@ func PrintListOfImages(paths []string) error {
 	return nil
 }
 
-// wp ls - will give a numbered list of all jpegs in the specified directory
-// wp set -n <n> - will set wallpaper to the image at wp_ls[n]
-
-const wallpaperDir = "/home/chris/Pictures/Wallpapers"
+const wallpaperDirEnvName = "WP_DIR"
 
 func main() {
 	app := cli.NewApp()
@@ -71,29 +59,102 @@ func main() {
 				cli.IntFlag{
 					Name: "n",
 				},
+				cli.BoolFlag{
+					Name: "r",
+				},
 			},
 			Action: setWallpaper,
 		},
 	}
 
-	app.Run(os.Args)
+	err := app.Run(os.Args)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+}
+
+type Orientation int
+
+const (
+	Vertical Orientation = iota + 1
+	Horizontal
+	Square
+)
+
+func GetOrientationFromAspectRatio(a float32) Orientation {
+	if a < 1 {
+		return Vertical
+	} else if a > 1 {
+		return Horizontal
+	} else {
+		return Square
+	}
+}
+
+func GetImagesWithOrientation(images []string, orientation Orientation) []string {
+	var filteredImages []string
+	for _, i := range images {
+		o := GetOrientationFromAspectRatio(GetImageAspectRatio(i))
+		if o == orientation {
+			filteredImages = append(filteredImages, i)
+		}
+	}
+	return filteredImages
+}
+
+func GetImageAspectRatio(path string) float32 {
+	f, err := os.Open(path)
+	if err != nil {
+		panic(errors.Wrapf(err, "failed to open file %s", path))
+	}
+	img, _, err := image.DecodeConfig(f)
+	if err != nil {
+		panic(errors.Wrapf(err, "failed to decode config %s", path))
+	}
+
+	return float32(img.Width) / float32(img.Height)
 }
 
 func listWallpapers(ctx *cli.Context) error {
+	wallpaperDir := os.Getenv(wallpaperDirEnvName)
+	if wallpaperDir == "" {
+		return fmt.Errorf("%s env var must be provided", wallpaperDirEnvName)
+	}
+	fmt.Println(wallpaperDir)
 	imagePaths, err := GetImagesInDir(wallpaperDir)
 	if err != nil {
 		return err
 	}
-	PrintListOfImages(imagePaths)
+
+	filteredImagePaths := GetImagesWithOrientation(imagePaths, Horizontal)
+
+	PrintListOfImages(filteredImagePaths)
 	return nil
 }
 
 func setWallpaper(ctx *cli.Context) error {
+	wallpaperDir := os.Getenv(wallpaperDirEnvName)
+	if wallpaperDir == "" {
+		return fmt.Errorf("%s env var must be provided", wallpaperDirEnvName)
+	}
 	imagePaths, err := GetImagesInDir(wallpaperDir)
 	if err != nil {
 		return errors.Wrap(err, "failed to get list of images")
 	}
 
-	err = wallpaper.Set(imagePaths[ctx.Int("n")])
+	filteredImagePaths := GetImagesWithOrientation(imagePaths, Horizontal)
+
+	wallpaperNum := 0
+	if ctx.IsSet("r") {
+		rand.Seed(time.Now().UnixNano())
+		wallpaperNum = rand.Intn(len(filteredImagePaths))
+	} else if ctx.IsSet("n") {
+		wallpaperNum = ctx.Int("n")
+	} else {
+		return errors.New("-n or -r must be set")
+	}
+
+	err = wallpaper.Set(filteredImagePaths[wallpaperNum])
 	return errors.Wrap(err, "failed to set wallpaper")
 }
